@@ -285,8 +285,8 @@
 
                 lines.forEach(line => {
                     const namePart = line.substring(ayar['Ad Başlangıç'] || 0, ayar['Ad Bitiş'] || 0).trim();
-                    if (namePart.startsWith('CEVAP_ANAHTARI_A')) { keyA = line; } 
-                    else if (namePart.startsWith('CEVAP_ANAHTARI_B')) { keyB = line; } 
+                    if (namePart.startsWith('CEVAP A')) { keyA = line; } 
+                    else if (namePart.startsWith('CEVAP B')) { keyB = line; } 
                     else {
                         studentsLines.push({
                             numara: line.substring(ayar['Öğr No Başlangıç'] || 0, ayar['Öğr No Bitiş'] || 0).trim(),
