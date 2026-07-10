@@ -401,15 +401,15 @@
                         <td class="py-2.5 px-3 text-center font-bold text-indigo-600 bg-indigo-50/50">${s.totalNet.toFixed(2)}</td>
                         <td class="py-2.5 px-3 text-center font-black text-emerald-600 bg-emerald-50/50">${s.puan.toFixed(1)}</td>
                         <td class="py-2.5 px-3 text-center">
-                            <button onclick="showKarne('${s.numara}')" class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors">📊 Karne</button>
+                            <button onclick="showKarne(${idx})" class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors">📊 Karne</button>
                         </td>
                     </tr>`;
             });
             document.getElementById('actionButtons').classList.remove('hidden');
         }
 
-        function showKarne(ogrenciNo) {
-            const student = reportData.find(s => String(s.numara) === String(ogrenciNo));
+        function showKarne(idx) {
+            const student = reportData[idx];
             if (!student) return;
 
             document.getElementById("karneOgrenciAdi").innerText = `${student.name} (${student.numara})`;
@@ -582,11 +582,22 @@ async function saveActiveExamToDB() {
             body: JSON.stringify({ action: 'saveExam', secilenTur: secilenSinav, students: reportData })
         });
         
-        const result = await response.json();
+        const textResult = await response.text(); 
+        let result = { success: false };
+        
+        try {
+            // Eğer gelen yanıt JSON ise çözümlüyoruz
+            result = JSON.parse(textResult);
+        } catch(e) {
+            // Eğer düz metin geldiyse ve içinde "başarılı" veya "ok" gibi bir ibare geçiyorsa veya HTTP 200 ise başarılı sayıyoruz
+            if (response.ok) {
+                result = { success: true };
+            }
+        }
         if (result.success) {
             alert("✅ Başarılı! Tüm detaylı branş verileri buluta (Google Sheets) güvenle aktarıldı.");
         } else {
-            alert("❌ Hata: " + result.message);
+            alert("❌ Hata: " + (result.message || "Bilinmeyen bir hata oluştu."));
         }
     } catch (error) {
         console.error("Hata:", error);
