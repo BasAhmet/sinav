@@ -484,7 +484,7 @@
             document.getElementById("karneModal").classList.remove('hidden');
         }
 
-        // 📈 ÖĞRENCİ GELİŞİM GEÇMİŞİNİ BULUTTAN ÇEKEN FONKSİYON (GÜNCELLENDİ)
+        // 📈 ÖĞRENCİ GELİŞİM GEÇMİŞİNİ BULUTTAN ÇEKEN FONKSİYON
         async function showGelisim(ogrenciNo, ogrenciAdi, zorunluTur) {
             if(!ogrenciNo || ogrenciNo === '-') {
                 alert("Lütfen geçerli bir öğrenci numarası girin.");
@@ -496,7 +496,6 @@
             const canvasContainer = document.getElementById("gelisimCanvasContainer");
             const baslik = document.getElementById("gelisimOgrenciAdi");
             
-            // Eğer Hızlı Arama'dan "zorunluTur" gelmişse onu kullan, yoksa ana dosya yüklemedeki türü al
             const secilenSinav = zorunluTur || document.getElementById('examType').value;
         
             if(!secilenSinav) {
@@ -507,8 +506,9 @@
             modal.classList.remove('hidden');
             loading.classList.remove('hidden');
             canvasContainer.classList.add('hidden');
-            // Eğer tabloda isim varsa ismini yaz, hızlı aramadan geldiyse sadece numarasını yaz
-            baslik.innerText = ogrenciAdi ? `${ogrenciAdi} (${ogrenciNo})` : `Öğrenci No: ${ogrenciNo} Geçmişi`;
+            
+            // Yükleniyor aşamasında geçici başlık
+            baslik.innerText = `Öğrenci No: ${ogrenciNo} Aranıyor...`;
         
             try {
                 const response = await fetch(WEB_APP_URL, {
@@ -522,8 +522,12 @@
                     loading.classList.add('hidden');
                     canvasContainer.classList.remove('hidden');
                     
-                    // Tarihe göre sıralama (Eskiden yeniye doğru grafik çizmek için)
-                    const siraliVeri = result.data.reverse();
+                    // YENİ 1: Arka plandan (Google Sheets) gelen ismi alıp başlığa yazdırıyoruz
+                    const gercekIsim = result.ogrenciAdi || ogrenciAdi || "İsimsiz Öğrenci";
+                    baslik.innerText = `${gercekIsim} (${ogrenciNo})`;
+        
+                    // YENİ 2: .reverse() komutunu kaldırdık! Artık tabloya eklenme sırasına (eskiden yeniye) göre çizecek
+                    const siraliVeri = result.data; 
         
                     const labels = siraliVeri.map(d => d.denemeAdi);
                     const dataNet = siraliVeri.map(d => d.net);
@@ -555,7 +559,7 @@
                     });
                 } else {
                     loading.classList.add('hidden');
-                    baslik.innerText = "Bu öğrenciye ait geçmiş sınav kaydı bulunamadı.";
+                    baslik.innerText = `Sonuç bulunamadı (${ogrenciNo})`;
                 }
             } catch (e) {
                 console.error(e);
