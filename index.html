@@ -120,6 +120,32 @@
             </div>
         </div>
     </div>
+    <div id="gelisimModal" class="hidden fixed inset-0 bg-slate-900/60 z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl p-6">
+            <div class="flex justify-between items-start border-b border-slate-100 pb-4 mb-4">
+                <div>
+                    <h2 id="gelisimOgrenciAdi" class="text-2xl font-black text-slate-800">Öğrenci Geçmişi</h2>
+                    <h3 class="text-sm font-semibold text-slate-500 mt-1">Bulut veritabanından geçmiş deneme sonuçları</h3>
+                </div>
+                <button onclick="document.getElementById('gelisimModal').classList.add('hidden')" class="text-slate-400 hover:text-red-500 transition-colors">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <div id="gelisimLoading" class="py-12 text-center hidden">
+                <div class="inline-block animate-spin w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full mb-3"></div>
+                <p class="text-slate-500 font-semibold">Geçmiş veriler Google E-Tablolardan çekiliyor...</p>
+            </div>
+
+            <div id="gelisimCanvasContainer" class="mb-6 hidden">
+                <canvas id="gelisimGrafik" height="100"></canvas>
+            </div>
+            
+            <div class="flex justify-end gap-3 border-t border-slate-100 pt-4">
+                <button onclick="document.getElementById('gelisimModal').classList.add('hidden')" class="px-5 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200">Kapat</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzq_AUX-Ep0NM10bP-Yol83ODOWVehBqsXLW5BxnqjG8QJQn5h81CbzAPx0J9s85V68zA/exec";
@@ -128,6 +154,7 @@
         let currentExamTitle = "";
         let globalSettings = []; 
         let currentChart = null; 
+        let gelisimChart = null; // Gelişim grafiğini tutacak değişken
 
         // 🛡️ BULUT TABANLI GÜVENLİK DOĞRULAMASI
         async function checkLogin() {
@@ -402,6 +429,7 @@
                         <td class="py-2.5 px-3 text-center font-black text-emerald-600 bg-emerald-50/50">${s.puan.toFixed(1)}</td>
                         <td class="py-2.5 px-3 text-center">
                             <button onclick="showKarne(${idx})" class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors">📊 Karne</button>
+                            <button onclick="showGelisim('${s.numara}', '${s.name}')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors ml-1">📈 Gelişim</button>
                         </td>
                     </tr>`;
             });
@@ -440,6 +468,77 @@
                 options: { responsive: true, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: 'bottom' } } }
             });
             document.getElementById("karneModal").classList.remove('hidden');
+        }
+        // 📈 ÖĞRENCİ GELİŞİM GEÇMİŞİNİ BULUTTAN ÇEKEN FONKSİYON
+        async function showGelisim(ogrenciNo, ogrenciAdi) {
+            if(!ogrenciNo || ogrenciNo === '-') {
+                alert("Bu öğrencinin numarası sisteme girilmediği için geçmişi sorgulanamıyor.");
+                return;
+            }
+        
+            const modal = document.getElementById("gelisimModal");
+            const loading = document.getElementById("gelisimLoading");
+            const canvasContainer = document.getElementById("gelisimCanvasContainer");
+            const baslik = document.getElementById("gelisimOgrenciAdi");
+            const secilenSinav = document.getElementById('examType').value;
+        
+            modal.classList.remove('hidden');
+            loading.classList.remove('hidden');
+            canvasContainer.classList.add('hidden');
+            baslik.innerText = `${ogrenciAdi} (${ogrenciNo})`;
+        
+            try {
+                const response = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'getStudentHistory', numara: ogrenciNo, secilenTur: secilenSinav })
+                });
+                
+                const result = await response.json();
+        
+                if (result.success && result.data.length > 0) {
+                    loading.classList.add('hidden');
+                    canvasContainer.classList.remove('hidden');
+                    
+                    // Tarihe göre sıralama (Eskiden yeniye)
+                    const siraliVeri = result.data.reverse();
+        
+                    const labels = siraliVeri.map(d => d.denemeAdi);
+                    const dataNet = siraliVeri.map(d => d.net);
+        
+                    const ctx = document.getElementById('gelisimGrafik').getContext('2d');
+                    if (gelisimChart) gelisimChart.destroy();
+        
+                    gelisimChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Toplam Net Grafiği',
+                                data: dataNet,
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                borderWidth: 3,
+                                pointBackgroundColor: '#10b981',
+                                pointRadius: 5,
+                                fill: true,
+                                tension: 0.3
+                            }]
+                        },
+                        options: { 
+                            responsive: true, 
+                            scales: { y: { beginAtZero: false } },
+                            plugins: { legend: { position: 'top' } }
+                        }
+                    });
+                } else {
+                    loading.classList.add('hidden');
+                    baslik.innerText = "Geçmiş veri bulunamadı.";
+                }
+            } catch (e) {
+                console.error(e);
+                loading.classList.add('hidden');
+                baslik.innerText = "Bağlantı hatası!";
+            }
         }
 
         function printReport(type) {
