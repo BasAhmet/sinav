@@ -49,19 +49,40 @@
                     <h2 class="text-lg font-bold text-slate-800">📂 Dosya Yükle</h2>
                     <span id="userBadge" class="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-bold">Hoca</span>
                 </div>
-                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mt-4">
-                    <h2 class="text-lg font-bold text-slate-800 mb-4">🔍 Hızlı Geçmiş Sorgula</h2>
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mt-4">
+                    <h2 class="text-lg font-bold text-slate-800 mb-4">👥 Öğrenci Rehberi</h2>
                     
-                    <label class="text-xs text-slate-500 font-bold ml-1">Sınav Türü:</label>
-                    <select id="quickExamType" class="w-full px-3 py-2 border border-slate-200 rounded-lg mb-3 text-sm bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none">
-                        <option value="YKS">YKS (TYT / AYT)</option>
-                        <option value="LGS">LGS</option>
-                    </select>
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <div>
+                            <label class="text-[10px] text-slate-500 font-bold ml-1 uppercase">Sınav Türü</label>
+                            <select id="quickExamType" onchange="fetchStudentList()" class="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none font-semibold text-slate-700">
+                                <option value="YKS">YKS (TYT/AYT)</option>
+                                <option value="LGS">LGS</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-500 font-bold ml-1 uppercase">Gösterilecek</label>
+                            <select id="examLimit" class="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none font-semibold text-slate-700">
+                                <option value="999">Tümü</option>
+                                <option value="1">Son 1 Deneme</option>
+                                <option value="5" selected>Son 5 Deneme</option>
+                                <option value="10">Son 10 Deneme</option>
+                            </select>
+                        </div>
+                    </div>
         
-                    <label class="text-xs text-slate-500 font-bold ml-1">Öğrenci Numarası:</label>
-                    <input type="text" id="quickStudentNo" placeholder="Örn: 105" class="w-full px-3 py-2 border border-slate-200 rounded-lg mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onkeydown="if(event.key === 'Enter') quickSearchHistory()">
+                    <div class="relative mb-2">
+                        <input type="text" id="studentSearchInput" onkeyup="filterStudentList()" placeholder="Öğrenci Ara (Ad veya No)..." class="w-full px-3 py-2 pl-8 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-400">
+                        <span class="absolute left-2.5 top-2 text-slate-400">🔍</span>
+                    </div>
                     
-                    <button onclick="quickSearchHistory()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2.5 rounded-xl transition-colors shadow-sm shadow-emerald-200">📈 Gelişimi Getir</button>
+                    <div id="studentListLoading" class="text-center py-6 hidden">
+                        <div class="inline-block animate-spin w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full mb-1"></div>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase">Liste Çekiliyor...</p>
+                    </div>
+                    <div id="studentListContainer" class="max-h-56 overflow-y-auto divide-y divide-slate-100 border border-slate-100 rounded-lg custom-scrollbar">
+                        <div class="p-4 text-center text-xs text-slate-400">Lütfen önce sınav türü seçip bekleyin.</div>
+                    </div>
                 </div>
                 <input type="text" id="examTitle" placeholder="Örn: TYT Deneme 1" class="w-full px-3 py-2 border border-slate-200 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <input type="file" id="fileInput" accept=".txt" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer mb-4"/>
@@ -484,103 +505,165 @@
             document.getElementById("karneModal").classList.remove('hidden');
         }
 
-        // 📈 ÖĞRENCİ GELİŞİM GEÇMİŞİNİ BULUTTAN ÇEKEN FONKSİYON
-        async function showGelisim(ogrenciNo, ogrenciAdi, zorunluTur) {
-            if(!ogrenciNo || ogrenciNo === '-') {
-                alert("Lütfen geçerli bir öğrenci numarası girin.");
+        // 📈 ÖĞRENCİ GELİŞİM GEÇMİŞİNİ BULUTTAN ÇEKEN FONKSİYON        
+        // 🔍 HIZLI ARAMA BUTONUNUN TETİKLEYİCİSİ (YENİ EKLENDİ)
+        // --- YENİ: ÖĞRENCİ REHBERİ YÖNETİMİ ---
+        let allStudentsList = []; // Google'dan gelen listeyi hafızada tutar
+        
+        async function fetchStudentList() {
+            const type = document.getElementById('quickExamType').value;
+            const container = document.getElementById('studentListContainer');
+            const loading = document.getElementById('studentListLoading');
+            
+            container.innerHTML = '';
+            loading.classList.remove('hidden');
+        
+            try {
+                const res = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'getStudentList', secilenTur: type })
+                });
+                const result = await res.json();
+                
+                if(result.success) {
+                    allStudentsList = result.data;
+                    renderStudentList(allStudentsList);
+                }
+            } catch(e) {
+                container.innerHTML = '<div class="p-3 text-center text-xs text-red-500">Bağlantı hatası!</div>';
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+        
+        function renderStudentList(list) {
+            const container = document.getElementById('studentListContainer');
+            if(list.length === 0) {
+                container.innerHTML = '<div class="p-4 text-center text-xs text-slate-500">Bu sınav türünde kayıtlı öğrenci bulunamadı.</div>';
                 return;
             }
+            
+            // Tıklanan öğrencinin bilgilerini doğrudan grafiğe gönderiyoruz
+            container.innerHTML = list.map(s => `
+                <div onclick="showGelisim('${s.numara}', '${s.isim}')" class="p-3 hover:bg-indigo-50 cursor-pointer flex justify-between items-center transition-colors group">
+                    <span class="text-sm font-semibold text-slate-700 group-hover:text-indigo-700">${s.isim}</span>
+                    <span class="text-[10px] font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">${s.numara}</span>
+                </div>
+            `).join('');
+        }
         
+        function filterStudentList() {
+            const query = document.getElementById('studentSearchInput').value.toLowerCase();
+            const filtered = allStudentsList.filter(s => s.isim.toLowerCase().includes(query) || s.numara.includes(query));
+            renderStudentList(filtered);
+        }
+        
+        // Uygulama yüklendiğinde otomatik olarak listeyi getir
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => { if(document.getElementById('quickExamType')) fetchStudentList(); }, 1500);
+        });
+        
+        // --- YENİ: BRANŞ DESTEKLİ VE LİMİTLİ GELİŞİM GRAFİĞİ ---
+        async function showGelisim(ogrenciNo, ogrenciAdi, zorunluTur) {
             const modal = document.getElementById("gelisimModal");
             const loading = document.getElementById("gelisimLoading");
             const canvasContainer = document.getElementById("gelisimCanvasContainer");
             const baslik = document.getElementById("gelisimOgrenciAdi");
             
-            const secilenSinav = zorunluTur || document.getElementById('examType').value;
-        
-            if(!secilenSinav) {
-                alert("Lütfen bir sınav türü seçin.");
-                return;
-            }
+            const secilenSinav = zorunluTur || document.getElementById('quickExamType').value;
+            const gosterilecekAdet = parseInt(document.getElementById('examLimit').value); // Kullanıcının seçtiği 5, 10 veya Tümü rakamı
         
             modal.classList.remove('hidden');
             loading.classList.remove('hidden');
             canvasContainer.classList.add('hidden');
-            
-            // Yükleniyor aşamasında geçici başlık
-            baslik.innerText = `Öğrenci No: ${ogrenciNo} Aranıyor...`;
+            baslik.innerText = `${ogrenciAdi} (${ogrenciNo})`;
         
             try {
                 const response = await fetch(WEB_APP_URL, {
                     method: 'POST',
                     body: JSON.stringify({ action: 'getStudentHistory', numara: ogrenciNo, secilenTur: secilenSinav })
                 });
-                
                 const result = await response.json();
         
                 if (result.success && result.data.length > 0) {
                     loading.classList.add('hidden');
                     canvasContainer.classList.remove('hidden');
                     
-                    // YENİ 1: Arka plandan (Google Sheets) gelen ismi alıp başlığa yazdırıyoruz
-                    const gercekIsim = result.ogrenciAdi || ogrenciAdi || "İsimsiz Öğrenci";
-                    baslik.innerText = `${gercekIsim} (${ogrenciNo})`;
+                    // Kullanıcının "Son 5", "Son 10" seçimine göre tablonun sonundan veriyi kesiyoruz
+                    let analizVerisi = result.data;
+                    if (gosterilecekAdet !== 999) {
+                        analizVerisi = analizVerisi.slice(-gosterilecekAdet);
+                    }
         
-                    // YENİ 2: .reverse() komutunu kaldırdık! Artık tabloya eklenme sırasına (eskiden yeniye) göre çizecek
-                    const siraliVeri = result.data; 
+                    const labels = analizVerisi.map(d => d.denemeAdi);
+                    const dataTotal = analizVerisi.map(d => d.net);
+                    
+                    // Branşları çekiyoruz
+                    const dataTurkce = analizVerisi.map(d => d.branslar['Türkçe']);
+                    const dataMat = analizVerisi.map(d => d.branslar['Matematik']);
+                    const dataFen = analizVerisi.map(d => d.branslar['Fen B.']);
         
-                    const labels = siraliVeri.map(d => d.denemeAdi);
-                    const dataNet = siraliVeri.map(d => d.net);
+                    // Grafiğin Datasetlerini oluşturuyoruz
+                    const datasets = [
+                        {
+                            label: 'Toplam Net', data: dataTotal,
+                            borderColor: '#10b981', backgroundColor: '#10b981',
+                            borderWidth: 4, tension: 0.3
+                        },
+                        {
+                            label: 'Türkçe', data: dataTurkce,
+                            borderColor: '#ef4444', backgroundColor: '#ef4444',
+                            borderWidth: 2, tension: 0.3, hidden: true // Başlangıçta gizli
+                        },
+                        {
+                            label: 'Matematik', data: dataMat,
+                            borderColor: '#3b82f6', backgroundColor: '#3b82f6',
+                            borderWidth: 2, tension: 0.3, hidden: true
+                        },
+                        {
+                            label: 'Fen Bilimleri', data: dataFen,
+                            borderColor: '#f59e0b', backgroundColor: '#f59e0b',
+                            borderWidth: 2, tension: 0.3, hidden: true
+                        }
+                    ];
+        
+                    // Eğer Sınav YKS ise Sosyal bölümünü de ekle
+                    if (secilenSinav === "YKS") {
+                        const dataSos = analizVerisi.map(d => d.branslar['Sosyal']);
+                        datasets.push({
+                            label: 'Sosyal Bilgiler', data: dataSos,
+                            borderColor: '#8b5cf6', backgroundColor: '#8b5cf6',
+                            borderWidth: 2, tension: 0.3, hidden: true
+                        });
+                    }
         
                     const ctx = document.getElementById('gelisimGrafik').getContext('2d');
                     if (gelisimChart) gelisimChart.destroy();
         
                     gelisimChart = new Chart(ctx, {
                         type: 'line',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: 'Toplam Net Değişimi',
-                                data: dataNet,
-                                borderColor: '#10b981',
-                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                                borderWidth: 3,
-                                pointBackgroundColor: '#10b981',
-                                pointRadius: 5,
-                                fill: true,
-                                tension: 0.3
-                            }]
-                        },
+                        data: { labels: labels, datasets: datasets },
                         options: { 
                             responsive: true, 
                             scales: { y: { beginAtZero: false } },
-                            plugins: { legend: { position: 'top' } }
+                            plugins: { 
+                                legend: { position: 'top' },
+                                tooltip: { mode: 'index', intersect: false }
+                            },
+                            interaction: { mode: 'nearest', axis: 'x', intersect: false }
                         }
                     });
                 } else {
                     loading.classList.add('hidden');
-                    baslik.innerText = `Sonuç bulunamadı (${ogrenciNo})`;
+                    baslik.innerText = "Bu öğrencinin geçmiş kaydı bulunamadı.";
                 }
             } catch (e) {
                 console.error(e);
                 loading.classList.add('hidden');
-                baslik.innerText = "Sunucuya bağlanılamadı!";
+                baslik.innerText = "Bağlantı Hatası!";
             }
         }
-        
-        // 🔍 HIZLI ARAMA BUTONUNUN TETİKLEYİCİSİ (YENİ EKLENDİ)
-        function quickSearchHistory() {
-            const no = document.getElementById('quickStudentNo').value.trim();
-            const tur = document.getElementById('quickExamType').value;
-            
-            if(!no) {
-                alert("Lütfen sorgulamak için bir Öğrenci Numarası girin.");
-                return;
-            }
-            
-            // İsim kısmını null gönderiyoruz, tür kısmını seçilen tür olarak yolluyoruz
-            showGelisim(no, null, tur);
-        }
+
 
         function printReport(type) {
             const printArea = document.getElementById('printArea');
