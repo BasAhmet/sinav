@@ -49,6 +49,20 @@
                     <h2 class="text-lg font-bold text-slate-800">📂 Dosya Yükle</h2>
                     <span id="userBadge" class="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-bold">Hoca</span>
                 </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mt-4">
+                    <h2 class="text-lg font-bold text-slate-800 mb-4">🔍 Hızlı Geçmiş Sorgula</h2>
+                    
+                    <label class="text-xs text-slate-500 font-bold ml-1">Sınav Türü:</label>
+                    <select id="quickExamType" class="w-full px-3 py-2 border border-slate-200 rounded-lg mb-3 text-sm bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <option value="YKS">YKS (TYT / AYT)</option>
+                        <option value="LGS">LGS</option>
+                    </select>
+        
+                    <label class="text-xs text-slate-500 font-bold ml-1">Öğrenci Numarası:</label>
+                    <input type="text" id="quickStudentNo" placeholder="Örn: 105" class="w-full px-3 py-2 border border-slate-200 rounded-lg mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onkeydown="if(event.key === 'Enter') quickSearchHistory()">
+                    
+                    <button onclick="quickSearchHistory()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2.5 rounded-xl transition-colors shadow-sm shadow-emerald-200">📈 Gelişimi Getir</button>
+                </div>
                 <input type="text" id="examTitle" placeholder="Örn: TYT Deneme 1" class="w-full px-3 py-2 border border-slate-200 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <input type="file" id="fileInput" accept=".txt" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer mb-4"/>
                 
@@ -469,10 +483,11 @@
             });
             document.getElementById("karneModal").classList.remove('hidden');
         }
-        // 📈 ÖĞRENCİ GELİŞİM GEÇMİŞİNİ BULUTTAN ÇEKEN FONKSİYON
-        async function showGelisim(ogrenciNo, ogrenciAdi) {
+
+        // 📈 ÖĞRENCİ GELİŞİM GEÇMİŞİNİ BULUTTAN ÇEKEN FONKSİYON (GÜNCELLENDİ)
+        async function showGelisim(ogrenciNo, ogrenciAdi, zorunluTur) {
             if(!ogrenciNo || ogrenciNo === '-') {
-                alert("Bu öğrencinin numarası sisteme girilmediği için geçmişi sorgulanamıyor.");
+                alert("Lütfen geçerli bir öğrenci numarası girin.");
                 return;
             }
         
@@ -480,12 +495,20 @@
             const loading = document.getElementById("gelisimLoading");
             const canvasContainer = document.getElementById("gelisimCanvasContainer");
             const baslik = document.getElementById("gelisimOgrenciAdi");
-            const secilenSinav = document.getElementById('examType').value;
+            
+            // Eğer Hızlı Arama'dan "zorunluTur" gelmişse onu kullan, yoksa ana dosya yüklemedeki türü al
+            const secilenSinav = zorunluTur || document.getElementById('examType').value;
+        
+            if(!secilenSinav) {
+                alert("Lütfen bir sınav türü seçin.");
+                return;
+            }
         
             modal.classList.remove('hidden');
             loading.classList.remove('hidden');
             canvasContainer.classList.add('hidden');
-            baslik.innerText = `${ogrenciAdi} (${ogrenciNo})`;
+            // Eğer tabloda isim varsa ismini yaz, hızlı aramadan geldiyse sadece numarasını yaz
+            baslik.innerText = ogrenciAdi ? `${ogrenciAdi} (${ogrenciNo})` : `Öğrenci No: ${ogrenciNo} Geçmişi`;
         
             try {
                 const response = await fetch(WEB_APP_URL, {
@@ -499,7 +522,7 @@
                     loading.classList.add('hidden');
                     canvasContainer.classList.remove('hidden');
                     
-                    // Tarihe göre sıralama (Eskiden yeniye)
+                    // Tarihe göre sıralama (Eskiden yeniye doğru grafik çizmek için)
                     const siraliVeri = result.data.reverse();
         
                     const labels = siraliVeri.map(d => d.denemeAdi);
@@ -513,7 +536,7 @@
                         data: {
                             labels: labels,
                             datasets: [{
-                                label: 'Toplam Net Grafiği',
+                                label: 'Toplam Net Değişimi',
                                 data: dataNet,
                                 borderColor: '#10b981',
                                 backgroundColor: 'rgba(16, 185, 129, 0.2)',
@@ -532,13 +555,27 @@
                     });
                 } else {
                     loading.classList.add('hidden');
-                    baslik.innerText = "Geçmiş veri bulunamadı.";
+                    baslik.innerText = "Bu öğrenciye ait geçmiş sınav kaydı bulunamadı.";
                 }
             } catch (e) {
                 console.error(e);
                 loading.classList.add('hidden');
-                baslik.innerText = "Bağlantı hatası!";
+                baslik.innerText = "Sunucuya bağlanılamadı!";
             }
+        }
+        
+        // 🔍 HIZLI ARAMA BUTONUNUN TETİKLEYİCİSİ (YENİ EKLENDİ)
+        function quickSearchHistory() {
+            const no = document.getElementById('quickStudentNo').value.trim();
+            const tur = document.getElementById('quickExamType').value;
+            
+            if(!no) {
+                alert("Lütfen sorgulamak için bir Öğrenci Numarası girin.");
+                return;
+            }
+            
+            // İsim kısmını null gönderiyoruz, tür kısmını seçilen tür olarak yolluyoruz
+            showGelisim(no, null, tur);
         }
 
         function printReport(type) {
