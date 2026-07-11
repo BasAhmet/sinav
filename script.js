@@ -645,3 +645,64 @@ async function saveActiveExamToDB() {
         if (btn) btn.innerText = "💾 Buluta (Sheets) Kaydet";
     }
 }
+// --- GRAFİK YAZDIRMA FONKSİYONU ---
+function printGelisimChart() {
+    const canvas = document.getElementById('gelisimGrafik');
+    if (!canvas) {
+        alert("Yazdırılacak grafik bulunamadı!");
+        return;
+    }
+
+    // 1. Grafiği yüksek kaliteli bir PNG resmine dönüştür
+    const imgData = canvas.toDataURL('image/png', 1.0);
+    const ogrenciAdi = document.getElementById("gelisimOgrenciAdi").innerText;
+
+    // 2. Sadece yazdırma işlemi için geçici bir pencere aç
+    const printWindow = window.open('', '_blank');
+
+    // 3. Geçici pencerenin içine resmimizi ve basit bir tasarım ekle
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>${ogrenciAdi} - Gelişim Grafiği</title>
+            <style>
+                body { 
+                    font-family: sans-serif; 
+                    text-align: center; 
+                    padding: 20px; 
+                    color: #1e293b;
+                }
+                img { 
+                    max-width: 100%; 
+                    height: auto; 
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    padding: 10px;
+                }
+                h2 { margin-bottom: 20px; }
+                /* Yazıcıya yatay (landscape) çıktı vermesini söyler */
+                @media print {
+                    @page { size: landscape; margin: 10mm; }
+                    body { margin: 0; padding: 0; }
+                }
+            </style>
+        </head>
+        <body>
+            <h2>${ogrenciAdi} - Deneme Analiz Grafiği</h2>
+            <img src="${imgData}" />
+            <script>
+                // Resmin tam yüklenmesi için yarım saniye bekleyip yazdırma ekranını aç
+                window.onload = function() {
+                    setTimeout(() => {
+                        window.print();
+                        window.close(); // Yazdırma bitince geçici pencereyi kapat
+                    }, 500);
+                };
+            <\/script>
+        </body>
+        </html>
+    `);
+    
+    // Pencereyi yüklemeyi bitir
+    printWindow.document.close();
+}
