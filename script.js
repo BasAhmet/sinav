@@ -1,6 +1,4 @@
-
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzq_AUX-Ep0NM10bP-Yol83ODOWVehBqsXLW5BxnqjG8QJQn5h81CbzAPx0J9s85V68zA/exec";
-        
         let reportData = [];
         let currentExamTitle = "";
         let globalSettings = []; 
@@ -179,7 +177,8 @@
 
                 const baseLessonsConfig = [
                     { id: 'turkce', name: 'Türkçe', start: ayar['Türkçe Başlangıç'], end: ayar['Türkçe Bitiş'] },
-                    { id: 'sosyal', name: 'Sosyal', start: ayar['Sosyal Başlangıç'], end: ayar['Sosyal Bitiş'] },
+                    { id: 'sosyal', name: 'İnkılap T.', start: ayar['Sosyal Başlangıç'], end: ayar['Sosyal Bitiş'] },
+                    { id: 'din', name: 'Din Kül.', start: ayar['Din Başlangıç'], end: ayar['Din Bitiş'] },
                     { id: 'matematik', name: 'Matematik', start: ayar['Matematik Başlangıç'], end: ayar['Matematik Bitiş'] },
                     { id: 'fen', name: 'Fen Bilimleri', start: ayar['Fen Başlangıç'], end: ayar['Fen Bitiş'] },
                     { id: 'ingilizce', name: 'İngilizce', start: ayar['İngilizce Başlangıç'], end: ayar['İngilizce Bitiş'] }
